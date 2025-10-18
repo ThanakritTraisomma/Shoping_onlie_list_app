@@ -1,170 +1,132 @@
 import streamlit as st
 import pandas as pd
-from io import BytesIO
-import os
 
 st.set_page_config(page_title="รายงานภาษีขายรายวัน", layout="wide")
 
-st.title("📑 ระบบกรอกและแก้ไขรายงานภาษีขายรายวัน")
+st.title("📑 ระบบกรอกข้อมูลรายงานภาษีขายรายวัน")
 
-# ==============================
-# 📂 โหลดข้อมูล (ไม่ต้องอัปโหลด)
-# ==============================
-DATA_FILE = "sales_daily.xlsx"
-COLUMNS = [
-    "วันที่สั่งซื้อ", "ลำดับ", "เลขที่ใบกำกับ", "Seller",
-    "เลขที่คำสั่งซื้อ/ชื่อลูกค้า", "รหัส", "สี", "Size",
-    "ราคาขาย", "ส่วนลด", "สุทธิ", "ว.ด.ป.", "จำนวนเงิน",
-    "ค่าขนส่ง กทม.", "ค่าขนส่ง ตจว.", "เลขที่ใบโอน", "หมายเหตุ"
-]
-
+# =========================
+# 1️⃣ ตั้งค่าเริ่มต้น
+# =========================
 if "df" not in st.session_state:
-    if os.path.exists(DATA_FILE):
-        df = pd.read_excel(DATA_FILE)
-    else:
-        df = pd.DataFrame(columns=COLUMNS)
-    st.session_state.df = df
+    st.session_state.df = pd.DataFrame(
+        columns=[
+            "วันที่", "เลขที่ใบกำกับภาษี", "ชื่อลูกค้า",
+            "มูลค่าสินค้า", "ภาษีมูลค่าเพิ่ม", "ยอดรวม",
+            "หมายเหตุ", "รายละเอียดเพิ่มเติม"
+        ]
+    )
 
 if "edit_index" not in st.session_state:
     st.session_state.edit_index = None
 
-
-# ==============================
-# 🧾 ฟอร์มกรอกข้อมูล
-# ==============================
-st.subheader("🧾 ฟอร์มกรอกข้อมูล")
-
-def clear_form():
-    st.session_state.edit_index = None
-    st.rerun()
-
 df = st.session_state.df
 
+# =========================
+# 2️⃣ ฟังก์ชันบันทึกข้อมูล
+# =========================
+def save_data(new_data):
+    st.session_state.df = pd.concat(
+        [st.session_state.df, pd.DataFrame([new_data])],
+        ignore_index=True
+    )
+    st.session_state.df.reset_index(drop=True, inplace=True)
+
+def update_data(index, new_data):
+    if 0 <= index < len(st.session_state.df):
+        st.session_state.df.iloc[index] = new_data
+        st.session_state.df.reset_index(drop=True, inplace=True)
+    st.session_state.edit_index = None
+
+def delete_data(index):
+    if 0 <= index < len(st.session_state.df):
+        st.session_state.df = st.session_state.df.drop(index).reset_index(drop=True)
+
+# =========================
+# 3️⃣ ฟอร์มกรอกข้อมูล
+# =========================
+st.subheader("🖊️ ฟอร์มกรอกข้อมูล")
+
 edit_row = None
-if st.session_state.edit_index is not None:
-    edit_row = df.loc[st.session_state.edit_index]
-    st.info(f"✏️ กำลังแก้ไขแถวที่ {st.session_state.edit_index + 1}")
+if (
+    st.session_state.edit_index is not None
+    and 0 <= st.session_state.edit_index < len(df)
+):
+    edit_row = df.iloc[st.session_state.edit_index]
+else:
+    st.session_state.edit_index = None
 
-with st.form("sales_form", clear_on_submit=False):
+with st.form("input_form", clear_on_submit=(edit_row is None)):
     col1, col2, col3 = st.columns(3)
-
     with col1:
-        วันที่สั่งซื้อ = st.date_input("วันที่สั่งซื้อ", value=pd.to_datetime(edit_row["วันที่สั่งซื้อ"]) if edit_row is not None else pd.Timestamp.today())
-        ลำดับ = st.number_input("ลำดับ", min_value=1, step=1, value=int(edit_row["ลำดับ"]) if edit_row is not None and str(edit_row["ลำดับ"]).isdigit() else 1)
-        เลขที่ใบกำกับ = st.text_input("เลขที่ใบกำกับ", value=str(edit_row["เลขที่ใบกำกับ"]) if edit_row is not None else "")
-        Seller = st.selectbox("Seller", ["shopee", "lazada", "cent", "อื่นๆ"], index=0)
-        เลขที่คำสั่งซื้อชื่อลูกค้า = st.text_input("เลขที่คำสั่งซื้อ/ชื่อลูกค้า", value=str(edit_row["เลขที่คำสั่งซื้อ/ชื่อลูกค้า"]) if edit_row is not None else "")
-
+        date = st.date_input("วันที่", value=None if edit_row is None else pd.to_datetime(edit_row["วันที่"]))
+        name = st.text_input("ชื่อลูกค้า", value="" if edit_row is None else edit_row["ชื่อลูกค้า"])
     with col2:
-        รหัส = st.text_input("รหัส", value=str(edit_row["รหัส"]) if edit_row is not None else "")
-        สี = st.text_input("สี", value=str(edit_row["สี"]) if edit_row is not None else "")
-        Size = st.text_input("Size", value=str(edit_row["Size"]) if edit_row is not None else "")
-        ราคาขาย = st.number_input("ราคาขาย", min_value=0.0, value=float(edit_row["ราคาขาย"]) if edit_row is not None else 0.0)
-        ส่วนลด = st.number_input("ส่วนลด", min_value=0.0, value=float(edit_row["ส่วนลด"]) if edit_row is not None else 0.0)
-        สุทธิ = st.number_input("สุทธิ", min_value=0.0, value=float(edit_row["สุทธิ"]) if edit_row is not None else 0.0)
-
+        invoice = st.text_input("เลขที่ใบกำกับภาษี", value="" if edit_row is None else edit_row["เลขที่ใบกำกับภาษี"])
+        product_value = st.number_input("มูลค่าสินค้า", min_value=0.0, value=0.0 if edit_row is None else float(edit_row["มูลค่าสินค้า"]))
     with col3:
-        วดป = st.date_input("ว.ด.ป.", value=pd.to_datetime(edit_row["ว.ด.ป."]) if edit_row is not None else pd.Timestamp.today())
-        จำนวนเงิน = st.number_input("จำนวนเงิน", min_value=0.0, value=float(edit_row["จำนวนเงิน"]) if edit_row is not None else 0.0)
-        ค่าขนส่งกทม = st.number_input("ค่าขนส่ง กทม.", min_value=0.0, value=float(edit_row["ค่าขนส่ง กทม."]) if edit_row is not None else 0.0)
-        ค่าขนส่งตจว = st.number_input("ค่าขนส่ง ตจว.", min_value=0.0, value=float(edit_row["ค่าขนส่ง ตจว."]) if edit_row is not None else 0.0)
-        เลขที่ใบโอน = st.text_input("เลขที่ใบโอน", value=str(edit_row["เลขที่ใบโอน"]) if edit_row is not None else "")
+        vat = st.number_input("ภาษีมูลค่าเพิ่ม", min_value=0.0, value=0.0 if edit_row is None else float(edit_row["ภาษีมูลค่าเพิ่ม"]))
+        total = st.number_input("ยอดรวม", min_value=0.0, value=0.0 if edit_row is None else float(edit_row["ยอดรวม"]))
 
-    st.markdown("---")
-    st.markdown("### 📝 หมายเหตุ")
+    remark = st.selectbox(
+        "หมายเหตุ",
+        ["", "ชำระแล้ว", "ยังไม่ชำระ", "อื่น ๆ"],
+        index=0 if edit_row is None else
+        (["", "ชำระแล้ว", "ยังไม่ชำระ", "อื่น ๆ"].index(edit_row["หมายเหตุ"]) if edit_row["หมายเหตุ"] in ["", "ชำระแล้ว", "ยังไม่ชำระ", "อื่น ๆ"] else 0)
+    )
 
-    remark_options = ["", "คืนสินค้า", "พัสดุตีกลับ", "ยกเลิกออเดอร์", "อื่นๆ"]
-    current_remark = ""
-    remark_text = ""
+    detail = ""
+    if remark != "":
+        detail = st.text_area("รายละเอียดเพิ่มเติม", value="" if edit_row is None else str(edit_row["รายละเอียดเพิ่มเติม"]))
 
-    if edit_row is not None and isinstance(edit_row["หมายเหตุ"], str):
-        for opt in remark_options:
-            if opt and opt in edit_row["หมายเหตุ"]:
-                current_remark = opt
-                if "(" in edit_row["หมายเหตุ"]:
-                    remark_text = edit_row["หมายเหตุ"].split("(")[-1].rstrip(")")
-                break
+    submitted = st.form_submit_button("💾 บันทึกข้อมูล")
+    if submitted:
+        new_row = {
+            "วันที่": date,
+            "เลขที่ใบกำกับภาษี": invoice,
+            "ชื่อลูกค้า": name,
+            "มูลค่าสินค้า": product_value,
+            "ภาษีมูลค่าเพิ่ม": vat,
+            "ยอดรวม": total,
+            "หมายเหตุ": remark,
+            "รายละเอียดเพิ่มเติม": detail,
+        }
 
-    หมายเหตุหลัก = st.selectbox("เลือกหมายเหตุ", remark_options, index=remark_options.index(current_remark))
-    รายละเอียดเพิ่มเติม = ""
-    if หมายเหตุหลัก != "":
-        รายละเอียดเพิ่มเติม = st.text_area("รายละเอียดเพิ่มเติม", value=remark_text)
+        if edit_row is None:
+            save_data(new_row)
+            st.success("✅ เพิ่มข้อมูลเรียบร้อยแล้ว")
+        else:
+            update_data(st.session_state.edit_index, new_row)
+            st.success("✏️ แก้ไขข้อมูลเรียบร้อยแล้ว")
 
-    หมายเหตุ = หมายเหตุหลัก
-    if รายละเอียดเพิ่มเติม:
-        หมายเหตุ += f" ({รายละเอียดเพิ่มเติม})"
+# =========================
+# 4️⃣ ตารางแสดงข้อมูล
+# =========================
+st.subheader("📋 ตารางข้อมูล")
 
-    submitted = st.form_submit_button("💾 บันทึกข้อมูล", use_container_width=True)
-    clear = st.form_submit_button("🧹 ล้างฟอร์ม", use_container_width=True)
+if not st.session_state.df.empty:
+    for i, row in st.session_state.df.iterrows():
+        with st.expander(f"🧾 {row['เลขที่ใบกำกับภาษี']} - {row['ชื่อลูกค้า']}"):
+            st.write(row.to_frame().T)
 
-if clear:
-    clear_form()
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✏️ แก้ไข", key=f"edit_{i}"):
+                    st.session_state.edit_index = i
+                    st.experimental_rerun()
+            with col2:
+                if st.button("🗑️ ลบ", key=f"delete_{i}"):
+                    delete_data(i)
+                    st.experimental_rerun()
+else:
+    st.info("ยังไม่มีข้อมูล กรุณากรอกข้อมูลใหม่")
 
-if submitted:
-    new_data = {
-        "วันที่สั่งซื้อ": วันที่สั่งซื้อ,
-        "ลำดับ": ลำดับ,
-        "เลขที่ใบกำกับ": เลขที่ใบกำกับ,
-        "Seller": Seller,
-        "เลขที่คำสั่งซื้อ/ชื่อลูกค้า": เลขที่คำสั่งซื้อชื่อลูกค้า,
-        "รหัส": รหัส,
-        "สี": สี,
-        "Size": Size,
-        "ราคาขาย": ราคาขาย,
-        "ส่วนลด": ส่วนลด,
-        "สุทธิ": สุทธิ,
-        "ว.ด.ป.": วดป,
-        "จำนวนเงิน": จำนวนเงิน,
-        "ค่าขนส่ง กทม.": ค่าขนส่งกทม,
-        "ค่าขนส่ง ตจว.": ค่าขนส่งตจว,
-        "เลขที่ใบโอน": เลขที่ใบโอน,
-        "หมายเหตุ": หมายเหตุ,
-    }
-
-    if st.session_state.edit_index is not None:
-        df.loc[st.session_state.edit_index] = new_data
-        st.success("✅ แก้ไขข้อมูลเรียบร้อยแล้ว!")
-        st.session_state.edit_index = None
-    else:
-        df.loc[len(df)] = new_data
-        st.success("✅ เพิ่มข้อมูลใหม่เรียบร้อยแล้ว!")
-
-    df.sort_values(by="วันที่สั่งซื้อ", ascending=True, inplace=True)
-    df.to_excel(DATA_FILE, index=False)
-    st.session_state.df = df
-    st.rerun()
-
-
-# ==============================
-# 📋 ตารางพร้อมปุ่มแก้ไข/ลบ
-# ==============================
-st.subheader("📋 ตารางข้อมูลทั้งหมด")
-
-for i, row in df.iterrows():
-    cols = st.columns([1, 1, 8])  # ปุ่ม + ข้อมูล
-    with cols[0]:
-        if st.button("✏️", key=f"edit_{i}"):
-            st.session_state.edit_index = i
-            st.rerun()
-    with cols[1]:
-        if st.button("🗑️", key=f"del_{i}"):
-            df = df.drop(i).reset_index(drop=True)
-            df.to_excel(DATA_FILE, index=False)
-            st.session_state.df = df
-            st.success(f"ลบแถวที่ {i+1} แล้ว")
-            st.rerun()
-    with cols[2]:
-        st.write(row.to_dict())
-
-# ==============================
-# ⬇️ ดาวน์โหลดไฟล์
-# ==============================
-buffer = BytesIO()
-df.to_excel(buffer, index=False)
-buffer.seek(0)
+# =========================
+# 5️⃣ ดาวน์โหลดข้อมูลเป็น Excel
+# =========================
 st.download_button(
-    label="📥 ดาวน์โหลด Excel",
-    data=buffer,
-    file_name="sales_daily.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    label="⬇️ ดาวน์โหลดข้อมูลเป็น Excel",
+    data=st.session_state.df.to_csv(index=False).encode("utf-8-sig"),
+    file_name="รายงานภาษีขายรายวัน.csv",
+    mime="text/csv",
 )
