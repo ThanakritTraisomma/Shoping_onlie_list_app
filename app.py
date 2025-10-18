@@ -63,7 +63,7 @@ with st.form("sales_form"):
         วันที่สั่งซื้อ = st.date_input("วันที่สั่งซื้อ")
         ลำดับ = st.number_input("ลำดับ", min_value=1, step=1)
         เลขที่ใบกำกับ = st.text_input("เลขที่ใบกำกับ")
-        Seller = st.selectbox("Seller", ["shopee", "lazada", "อื่นๆ"])
+        Seller = st.selectbox("Seller", ["shopee", "lazada", "cent"])
         เลขที่คำสั่งซื้อชื่อลูกค้า = st.text_input("เลขที่คำสั่งซื้อ/ชื่อลูกค้า")
 
     # ----------- คอลัมน์ 2 -----------
@@ -123,6 +123,7 @@ st.download_button(
     file_name="sales_daily.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
+
 
 
 
