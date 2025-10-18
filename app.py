@@ -1,12 +1,8 @@
 import streamlit as st
 import pandas as pd
 import os
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
 from io import BytesIO
 
-# ==============================
-# 📋 ตั้งค่าหน้าเว็บ
-# ==============================
 st.set_page_config(page_title="รายงานภาษีขายรายวัน", layout="wide")
 st.title("📑 ระบบกรอกข้อมูลรายงานภาษีขายรายวัน")
 
@@ -18,25 +14,17 @@ COLUMNS = [
     "ค่าขนส่ง กทม.", "ค่าขนส่ง ตจว.", "เลขที่ใบโอน"
 ]
 
-# ==============================
-# 📂 โหลดข้อมูล
-# ==============================
+# โหลดข้อมูล
 if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 0:
     df = pd.read_excel(DATA_FILE)
 else:
     df = pd.DataFrame(columns=COLUMNS)
 
-# ==============================
-# 🧹 ฟังก์ชันล้างฟอร์ม
-# ==============================
 def clear_form():
     for key in list(st.session_state.keys()):
         if key not in ["edit_index"]:
             del st.session_state[key]
 
-# ==============================
-# 🧾 ฟอร์มกรอกข้อมูล
-# ==============================
 st.subheader("🧾 กรอกหรือแก้ไขข้อมูล")
 
 edit_mode = "edit_index" in st.session_state and st.session_state.edit_index is not None
@@ -72,8 +60,9 @@ with st.form("sales_form"):
         ค่าขนส่งกทม = st.number_input("ค่าขนส่ง กทม.", min_value=0.0, value=0.0 if not edit_mode else float(edit_row["ค่าขนส่ง กทม."]))
         ค่าขนส่งตจว = st.number_input("ค่าขนส่ง ตจว.", min_value=0.0, value=0.0 if not edit_mode else float(edit_row["ค่าขนส่ง ตจว."]))
 
-        # 🔹 แยกเลขที่ใบโอน + หมายเหตุ
-        edit_เลขที่ใบโอน, edit_หมายเหตุ = "", ""
+        # 🔹 แยกเลขที่ใบโอน + หมายเหตุ (เวลาแก้ไข)
+        edit_เลขที่ใบโอน = ""
+        edit_หมายเหตุ = ""
         if edit_mode:
             txt = str(edit_row["เลขที่ใบโอน"])
             if "| หมายเหตุ:" in txt:
@@ -107,12 +96,10 @@ if submitted:
     หมายเหตุรวม = f" | หมายเหตุ: {หมายเหตุ_ตัวเลือก}: {หมายเหตุ_รายละเอียด}" if หมายเหตุ_ตัวเลือก else ""
     เลขที่ใบโอน_เต็ม = str(เลขที่ใบโอน) + หมายเหตุรวม
 
-    new_data = pd.DataFrame([[
-        วันที่สั่งซื้อ, ลำดับ, เลขที่ใบกำกับ, Seller,
-        เลขที่คำสั่งซื้อชื่อลูกค้า, รหัส, สี, Size,
-        ราคาขาย, ส่วนลด, สุทธิ, วดป, จำนวนเงิน,
-        ค่าขนส่งกทม, ค่าขนส่งตจว, เลขที่ใบโอน_เต็ม
-    ]], columns=COLUMNS)
+    new_data = pd.DataFrame([[วันที่สั่งซื้อ, ลำดับ, เลขที่ใบกำกับ, Seller,
+        เลขที่คำสั่งซื้อชื่อลูกค้า, รหัส, สี, Size, ราคาขาย, ส่วนลด,
+        สุทธิ, วดป, จำนวนเงิน, ค่าขนส่งกทม, ค่าขนส่งตจว, เลขที่ใบโอน_เต็ม]],
+        columns=COLUMNS)
 
     if edit_mode:
         df.iloc[st.session_state.edit_index] = new_data.iloc[0]
@@ -124,60 +111,37 @@ if submitted:
 
     df["วันที่สั่งซื้อ"] = pd.to_datetime(df["วันที่สั่งซื้อ"], errors="coerce")
     df = df.sort_values(by="วันที่สั่งซื้อ", ascending=True).reset_index(drop=True)
+
     df.to_excel(DATA_FILE, index=False)
     clear_form()
     st.rerun()
 
-# ==============================
-# 📋 ตารางข้อมูลพร้อมปุ่ม
-# ==============================
+# ==========================
+# 📋 ตารางข้อมูล
+# ==========================
 st.subheader("📋 ข้อมูลทั้งหมด")
-
 if not df.empty:
-    # เพิ่มคอลัมน์ปุ่ม
-    df_display = df.copy()
-    df_display["action"] = ""
+    st.dataframe(df, use_container_width=True)
 
-    # ปุ่ม JS สำหรับแสดงในเซลล์
-    cell_button = JsCode("""
-        function(params) {
-            return `
-                <div style="text-align:center;">
-                    <button style="color:white; background-color:#4CAF50; border:none; border-radius:4px; padding:2px 6px; margin-right:4px; cursor:pointer;"
-                            onclick="window.editRow(${params.rowIndex})">✏️</button>
-                    <button style="color:white; background-color:#f44336; border:none; border-radius:4px; padding:2px 6px; cursor:pointer;"
-                            onclick="window.deleteRow(${params.rowIndex})">🗑️</button>
-                </div>`;
-        }
-    """)
+    for i, row in df.iterrows():
+        cols = st.columns([0.1, 0.1, 1, 1, 1, 1])
+        with cols[0]:
+            edit_btn = st.button("✏️ แก้ไข", key=f"edit_{i}")
+        with cols[1]:
+            delete_btn = st.button("🗑️ ลบ", key=f"delete_{i}")
+        cols[2].write(row["เลขที่ใบกำกับ"])
+        cols[3].write(row["Seller"])
+        cols[4].write(row["เลขที่คำสั่งซื้อ/ชื่อลูกค้า"])
+        cols[5].write(row["เลขที่ใบโอน"])
 
-    gb = GridOptionsBuilder.from_dataframe(df_display)
-    gb.configure_column("action", headerName="จัดการ", cellRenderer=cell_button, autoHeight=True)
-    gb.configure_grid_options(domLayout='autoHeight')
+        if edit_btn:
+            st.session_state.edit_index = i
+            st.rerun()
 
-    grid_response = AgGrid(
-        df_display,
-        gridOptions=gb.build(),
-        update_mode=GridUpdateMode.NO_UPDATE,
-        allow_unsafe_jscode=True,
-        theme="balham",
-        fit_columns_on_grid_load=True,
-    )
-
-    # สคริปต์ JS ฝังในหน้าเพื่อจับ event ปุ่ม
-    st.components.v1.html("""
-        <script>
-        window.editRow = (index) => {
-            window.parent.postMessage({type: 'edit', index: index}, '*');
-        };
-        window.deleteRow = (index) => {
-            window.parent.postMessage({type: 'delete', index: index}, '*');
-        };
-        </script>
-    """, height=0)
-
-    # ใช้ event listener ของ streamlit
-    msg = st.experimental_get_query_params().get("msg", [None])[0]
-
+        if delete_btn:
+            df = df.drop(i).reset_index(drop=True)
+            df.to_excel(DATA_FILE, index=False)
+            st.warning("🗑️ ลบข้อมูลเรียบร้อยแล้ว!")
+            st.rerun()
 else:
     st.info("ยังไม่มีข้อมูล กรุณากรอกข้อมูลใหม่")
