@@ -70,7 +70,7 @@ with st.form("sales_form"):
     with col2:
         # หัวข้อใหญ่: รายละเอียดสินค้า
         st.markdown("### 🛍️ รายละเอียดสินค้า")
-        รหัส = st.text_input("รหัสสินค้า")
+        รหัส = st.text_input("รหัส")
         สี = st.text_input("สี")
         Size = st.text_input("Size")
 
@@ -123,6 +123,7 @@ st.download_button(
     file_name="sales_daily.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
+
 
 
 
