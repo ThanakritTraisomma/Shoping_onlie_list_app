@@ -91,7 +91,10 @@ if submitted:
 
 # ===== ส่วนที่ 3: แสดงข้อมูล =====
 st.subheader("📋 ข้อมูลที่มีอยู่แล้ว")
-st.dataframe(df, use_container_width=True)
+edited_df = st.data_editor(df, use_container_width=True, num_rows="dynamic")
+if st.button("💾 บันทึกการแก้ไขทั้งหมด"):
+    edited_df.to_excel(DATA_FILE, index=False)
+    st.success("✅ บันทึกการแก้ไขเรียบร้อยแล้ว!")
 
 # ===== ส่วนที่ 4: ดาวน์โหลดข้อมูล =====
 st.subheader("⬇️ ดาวน์โหลดไฟล์ Excel")
@@ -104,3 +107,4 @@ st.download_button(
     file_name="sales_daily.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
+
