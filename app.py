@@ -20,10 +20,16 @@ COLUMNS = [
 # ------------------------------
 
 # โหลดข้อมูลเดิม
-if os.path.exists(DATA_FILE):
-    df = pd.read_excel(DATA_FILE)
-else:
+# โหลดข้อมูลเดิม (พร้อมกัน error BadZipFile)
+try:
+    if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 0:
+        df = pd.read_excel(DATA_FILE)
+    else:
+        df = pd.DataFrame(columns=COLUMNS)
+except Exception as e:
+    st.warning("⚠️ ไม่สามารถอ่านไฟล์ Excel เดิมได้ (ไฟล์อาจเสียหรือไม่ใช่ .xlsx)")
     df = pd.DataFrame(columns=COLUMNS)
+
 
 # ===== ส่วนที่ 1: อัปโหลดไฟล์เดิม =====
 st.subheader("📤 อัปโหลดไฟล์ Excel เดิม (ถ้ามี)")
@@ -107,4 +113,5 @@ st.download_button(
     file_name="sales_daily.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
+
 
