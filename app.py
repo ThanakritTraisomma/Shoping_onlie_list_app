@@ -1,143 +1,147 @@
 import streamlit as st
 import pandas as pd
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
-from datetime import datetime
+import os
 from io import BytesIO
 
+# ==========================
+# ตั้งค่าหน้าเว็บ
+# ==========================
 st.set_page_config(page_title="รายงานภาษีขายรายวัน", layout="wide")
 
-st.title("📊 รายงานภาษีขายรายวัน")
+st.title("📑 ระบบกรอกข้อมูลรายงานภาษีขายรายวัน")
+st.write("กรอกข้อมูลใหม่, แก้ไข, หรือลบข้อมูลได้จากตารางด้านล่าง")
 
-# -------------------------------
-# 1️⃣ โหลดข้อมูล (หรือสร้าง DataFrame เริ่มต้น)
-# -------------------------------
-if "df" not in st.session_state:
-    st.session_state.df = pd.DataFrame(columns=[
-        "วันที่สั่งซื้อ", "ชื่อร้านค้า", "เลขที่ใบเสร็จ",
-        "จำนวนเงิน", "เลขที่ใบโอน", "หมายเหตุ"
-    ])
+# ==========================
+# ค่าพื้นฐาน
+# ==========================
+DATA_FILE = "sales_daily.xlsx"
+COLUMNS = [
+    "วันที่สั่งซื้อ", "ลำดับ", "เลขที่ใบกำกับ", "Seller",
+    "เลขที่คำสั่งซื้อ/ชื่อลูกค้า", "รหัส", "สี", "Size",
+    "ราคาขาย", "ส่วนลด", "สุทธิ", "ว.ด.ป.", "จำนวนเงิน",
+    "ค่าขนส่ง กทม.", "ค่าขนส่ง ตจว.", "เลขที่ใบโอน", "หมายเหตุ"
+]
 
-df = st.session_state.df
+# ==========================
+# โหลดข้อมูลเดิม
+# ==========================
+if os.path.exists(DATA_FILE):
+    try:
+        df = pd.read_excel(DATA_FILE)
+    except Exception:
+        df = pd.DataFrame(columns=COLUMNS)
+else:
+    df = pd.DataFrame(columns=COLUMNS)
 
-# -------------------------------
-# 2️⃣ ฟอร์มกรอกข้อมูลใหม่
-# -------------------------------
-with st.form("data_entry_form", clear_on_submit=True):
+if "edit_index" not in st.session_state:
+    st.session_state.edit_index = None
+
+# ==========================
+# ส่วนฟอร์มกรอก / แก้ไขข้อมูล
+# ==========================
+st.subheader("🧾 ฟอร์มกรอกข้อมูล")
+
+with st.form("sales_form", clear_on_submit=(st.session_state.edit_index is None)):
     col1, col2, col3 = st.columns(3)
-    with col1:
-        date = st.date_input("📅 วันที่สั่งซื้อ", datetime.today())
-    with col2:
-        shop_name = st.text_input("🏪 ชื่อร้านค้า")
-    with col3:
-        receipt_no = st.text_input("🧾 เลขที่ใบเสร็จ")
 
-    col4, col5, col6 = st.columns(3)
-    with col4:
-        amount = st.number_input("💰 จำนวนเงิน", min_value=0.0, step=0.01)
-    with col5:
-        transfer_no = st.text_input("🏦 เลขที่ใบโอน")
-    with col6:
-        remark = st.text_input("🗒 หมายเหตุ")
+    with col1:
+        วันที่สั่งซื้อ = st.date_input("วันที่สั่งซื้อ")
+        ลำดับ = st.number_input("ลำดับ", min_value=1, step=1)
+        เลขที่ใบกำกับ = st.text_input("เลขที่ใบกำกับ")
+        Seller = st.selectbox("Seller", ["shopee", "lazada", "cent", "อื่นๆ"])
+        เลขที่คำสั่งซื้อชื่อลูกค้า = st.text_input("เลขที่คำสั่งซื้อ/ชื่อลูกค้า")
+
+    with col2:
+        st.markdown("### 🛍️ รายละเอียดสินค้า")
+        รหัส = st.text_input("รหัส")
+        สี = st.text_input("สี")
+        Size = st.text_input("Size")
+
+        st.markdown("---")
+        st.markdown("### 💰 รายละเอียดการขาย")
+        ราคาขาย = st.number_input("ราคาขาย", min_value=0.0)
+        ส่วนลด = st.number_input("ส่วนลด", min_value=0.0)
+        สุทธิ = st.number_input("สุทธิ", min_value=0.0)
+
+    with col3:
+        st.markdown("### 📦 การชำระเงินและขนส่ง")
+        วดป = st.date_input("ว.ด.ป.")
+        จำนวนเงิน = st.number_input("จำนวนเงิน", min_value=0.0)
+        ค่าขนส่งกทม = st.number_input("ค่าขนส่ง กทม.", min_value=0.0)
+        ค่าขนส่งตจว = st.number_input("ค่าขนส่ง ตจว.", min_value=0.0)
+        เลขที่ใบโอน = st.text_input("เลขที่ใบโอน")
+
+        st.markdown("---")
+        หมายเหตุเลือก = st.selectbox(
+            "หมายเหตุ",
+            ["", "คืนสินค้า", "พัสดุตีกลับ", "ยกเลิกออเดอร์", "อื่นๆ"]
+        )
+        หมายเหตุข้อความ = ""
+        if หมายเหตุเลือก:
+            หมายเหตุข้อความ = st.text_area("รายละเอียดเพิ่มเติม", placeholder="ระบุรายละเอียด...")
 
     submitted = st.form_submit_button("💾 บันทึกข้อมูล")
 
-    if submitted:
-        new_row = {
-            "วันที่สั่งซื้อ": date,
-            "ชื่อร้านค้า": shop_name,
-            "เลขที่ใบเสร็จ": receipt_no,
-            "จำนวนเงิน": amount,
-            "เลขที่ใบโอน": transfer_no,
-            "หมายเหตุ": remark
-        }
-        st.session_state.df = pd.concat(
-            [st.session_state.df, pd.DataFrame([new_row])],
-            ignore_index=True
-        )
+# ==========================
+# เมื่อกดบันทึก
+# ==========================
+if submitted:
+    new_data = pd.DataFrame([[
+        วันที่สั่งซื้อ, ลำดับ, เลขที่ใบกำกับ, Seller,
+        เลขที่คำสั่งซื้อชื่อลูกค้า, รหัส, สี, Size,
+        ราคาขาย, ส่วนลด, สุทธิ, วดป, จำนวนเงิน,
+        ค่าขนส่งกทม, ค่าขนส่งตจว, เลขที่ใบโอน, หมายเหตุข้อความ
+    ]], columns=COLUMNS)
+
+    if st.session_state.edit_index is not None:
+        # อัปเดตข้อมูลแถวที่เลือก
+        df.iloc[st.session_state.edit_index] = new_data.iloc[0]
+        st.session_state.edit_index = None
+        st.success("✏️ แก้ไขข้อมูลเรียบร้อยแล้ว!")
+    else:
+        # เพิ่มข้อมูลใหม่
+        df = pd.concat([df, new_data], ignore_index=True)
         st.success("✅ บันทึกข้อมูลเรียบร้อยแล้ว!")
 
-# -------------------------------
-# 3️⃣ แสดงตารางข้อมูลแบบ AgGrid
-# -------------------------------
-st.markdown("## 📋 ข้อมูลที่บันทึกไว้")
+    df = df.sort_values(by="วันที่สั่งซื้อ", ascending=True).reset_index(drop=True)
+    df.to_excel(DATA_FILE, index=False)
+    st.rerun()
+
+# ==========================
+# แสดงข้อมูลในรูปแบบตาราง
+# ==========================
+st.subheader("📋 ข้อมูลทั้งหมด")
 
 if not df.empty:
-    gb = GridOptionsBuilder.from_dataframe(df)
-    gb.configure_pagination(enabled=True)
-    gb.configure_default_column(editable=False, wrapText=True, autoHeight=True)
-    gb.configure_selection(selection_mode="single", use_checkbox=True)
-    gb.configure_side_bar()
-    grid_options = gb.build()
-
-    grid_response = AgGrid(
-        df,
-        gridOptions=grid_options,
-        theme="alpine_dark",  # ✅ ปรับธีมให้ไอคอนมองเห็นได้
-        update_mode=GridUpdateMode.SELECTION_CHANGED,
-        fit_columns_on_grid_load=True,
-        enable_enterprise_modules=False,
-        height=400,
-    )
-
-    selected = grid_response["selected_rows"]
-    if selected:
-        selected_row = selected[0]
-        row_index = df.index[df["เลขที่ใบเสร็จ"] == selected_row["เลขที่ใบเสร็จ"]].tolist()[0]
-
-        st.divider()
-        st.subheader("✏️ แก้ไข / ลบข้อมูล")
-
-        with st.form("edit_form"):
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                date_edit = st.date_input("📅 วันที่สั่งซื้อ", pd.to_datetime(selected_row["วันที่สั่งซื้อ"]))
-            with c2:
-                shop_edit = st.text_input("🏪 ชื่อร้านค้า", selected_row["ชื่อร้านค้า"])
-            with c3:
-                receipt_edit = st.text_input("🧾 เลขที่ใบเสร็จ", selected_row["เลขที่ใบเสร็จ"])
-
-            c4, c5, c6 = st.columns(3)
-            with c4:
-                amount_edit = st.number_input("💰 จำนวนเงิน", min_value=0.0, step=0.01, value=float(selected_row["จำนวนเงิน"]))
-            with c5:
-                transfer_edit = st.text_input("🏦 เลขที่ใบโอน", selected_row["เลขที่ใบโอน"])
-            with c6:
-                remark_edit = st.text_input("🗒 หมายเหตุ", selected_row["หมายเหตุ"])
-
-            edit_submit = st.form_submit_button("💾 บันทึกการแก้ไข")
-            delete_submit = st.form_submit_button("🗑️ ลบรายการนี้")
-
-            if edit_submit:
-                st.session_state.df.loc[row_index] = [
-                    date_edit, shop_edit, receipt_edit, amount_edit, transfer_edit, remark_edit
-                ]
-                st.success("✅ แก้ไขข้อมูลเรียบร้อยแล้ว!")
-                st.rerun()
-
-            if delete_submit:
-                st.session_state.df = st.session_state.df.drop(row_index).reset_index(drop=True)
-                st.warning("🗑️ ลบข้อมูลเรียบร้อยแล้ว!")
-                st.rerun()
-
+    for i, row in df.iterrows():
+        cols = st.columns([1, 2, 2, 2, 2, 2, 2])
+        cols[0].write(f"**{i+1}**")
+        cols[1].write(row["วันที่สั่งซื้อ"])
+        cols[2].write(row["เลขที่ใบกำกับ"])
+        cols[3].write(row["Seller"])
+        cols[4].write(row["เลขที่คำสั่งซื้อ/ชื่อลูกค้า"])
+        cols[5].write(row["หมายเหตุ"])
+        edit_col, delete_col = cols[6].columns(2)
+        if edit_col.button("✏️", key=f"edit_{i}"):
+            st.session_state.edit_index = i
+            st.rerun()
+        if delete_col.button("🗑️", key=f"delete_{i}"):
+            df = df.drop(i).reset_index(drop=True)
+            df.to_excel(DATA_FILE, index=False)
+            st.rerun()
 else:
-    st.info("📝 ยังไม่มีข้อมูล กรุณากรอกในฟอร์มด้านบนก่อนครับ")
+    st.info("ยังไม่มีข้อมูลในระบบ")
 
-# -------------------------------
-# 4️⃣ ปุ่มดาวน์โหลด Excel
-# -------------------------------
-st.divider()
-st.subheader("⬇️ ดาวน์โหลดข้อมูลเป็นไฟล์ Excel")
-
-if not df.empty:
-    buffer = BytesIO()
-    df.to_excel(buffer, index=False)
-    buffer.seek(0)
-
-    st.download_button(
-        label="📥 ดาวน์โหลดไฟล์ Excel",
-        data=buffer,
-        file_name="sales_daily.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
-else:
-    st.write("ยังไม่มีข้อมูลให้ดาวน์โหลดครับ 😅")
+# ==========================
+# ปุ่มดาวน์โหลด
+# ==========================
+st.subheader("⬇️ ดาวน์โหลดไฟล์ Excel")
+buffer = BytesIO()
+df.to_excel(buffer, index=False)
+buffer.seek(0)
+st.download_button(
+    label="📥 ดาวน์โหลดไฟล์ Excel",
+    data=buffer,
+    file_name="sales_daily.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
