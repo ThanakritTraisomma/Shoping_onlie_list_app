@@ -32,38 +32,13 @@ def clear_form():
             del st.session_state[key]
 
 # ==========================
-# 📋 ตารางข้อมูล
-# ==========================
-st.subheader("📋 ตารางข้อมูล (เรียงตามวันที่สั่งซื้อ)")
-df["วันที่สั่งซื้อ"] = pd.to_datetime(df["วันที่สั่งซื้อ"], errors="coerce")
-df_sorted = df.sort_values(by="วันที่สั่งซื้อ", ascending=True).reset_index(drop=True)
-
-if not df_sorted.empty:
-    st.dataframe(df_sorted, use_container_width=True)
-
-    # เลือกแถวที่จะแก้ไข
-    selected = st.selectbox(
-        "เลือกแถวเพื่อแก้ไข",
-        options=df_sorted.index,
-        format_func=lambda i: f"ลำดับ {df_sorted.loc[i, 'ลำดับ']} | {df_sorted.loc[i, 'เลขที่ใบกำกับ']}"
-    )
-    st.session_state.selected_index = selected
-
-    # scroll ไปยังฟอร์ม
-    if st.button("แก้ไขแถวนี้"):
-        st.session_state.scroll_to_form = True
-        st.experimental_rerun()
-else:
-    st.info("ยังไม่มีข้อมูล กรุณากรอกข้อมูลใหม่")
-
-# ==========================
-# 🧾 ฟอร์มกรอก/แก้ไขข้อมูล (อยู่ตำแหน่งเดิม)
+# 🧾 ฟอร์มกรอก/แก้ไขข้อมูล (ด้านบน)
 # ==========================
 st.markdown("<a id='form'></a>", unsafe_allow_html=True)
 st.subheader("🧾 กรอกหรือแก้ไขข้อมูล")
 
 edit_mode = "selected_index" in st.session_state and st.session_state.selected_index is not None
-edit_row = df_sorted.loc[st.session_state.selected_index] if edit_mode else None
+edit_row = df.loc[st.session_state.selected_index] if edit_mode else None
 
 with st.form("sales_form", clear_on_submit=False):
     col1, col2, col3 = st.columns(3)
@@ -152,6 +127,30 @@ with st.form("sales_form", clear_on_submit=False):
 
     submitted = st.form_submit_button("💾 บันทึกข้อมูล")
     delete_btn = st.form_submit_button("🗑️ ลบข้อมูล") if edit_mode else False
+
+# ==========================
+# 📋 ตารางข้อมูล (ด้านล่าง)
+# ==========================
+st.subheader("📋 ตารางข้อมูล (เรียงตามวันที่สั่งซื้อ)")
+df["วันที่สั่งซื้อ"] = pd.to_datetime(df["วันที่สั่งซื้อ"], errors="coerce")
+df_sorted = df.sort_values(by="วันที่สั่งซื้อ", ascending=True).reset_index(drop=True)
+
+if not df_sorted.empty:
+    # แสดงตารางพร้อมคลิกเลือกแถว
+    for i, row in df_sorted.iterrows():
+        cols = st.columns([1, 1, 1, 1])
+        with cols[0]:
+            st.write(row["ลำดับ"])
+        with cols[1]:
+            st.write(row["เลขที่ใบกำกับ"])
+        with cols[2]:
+            st.write(row["Seller"])
+        with cols[3]:
+            if st.button("✏️ เลือก", key=f"select_{i}"):
+                st.session_state.selected_index = df.index[df_sorted.index == i][0]
+                st.experimental_rerun()
+else:
+    st.info("ยังไม่มีข้อมูล กรุณากรอกข้อมูลใหม่")
 
 # ==========================
 # ✅ บันทึกหรือ ลบข้อมูล
