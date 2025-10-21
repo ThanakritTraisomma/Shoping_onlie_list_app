@@ -23,16 +23,34 @@ if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 0:
 else:
     df = pd.DataFrame(columns=COLUMNS)
 
-
 def save_data(df):
     df.to_excel(DATA_FILE, index=False)
-
 
 def clear_form():
     for key in list(st.session_state.keys()):
         if key not in ["edit_index"]:
             del st.session_state[key]
 
+# ==========================
+# 📋 เลือกแถวสำหรับแก้ไข
+# ==========================
+st.subheader("📋 ตารางข้อมูล (เรียงตามวันที่สั่งซื้อ)")
+df["วันที่สั่งซื้อ"] = pd.to_datetime(df["วันที่สั่งซื้อ"], errors="coerce")
+df_sorted = df.sort_values(by="วันที่สั่งซื้อ", ascending=True).reset_index(drop=True)
+st.dataframe(df_sorted, use_container_width=True)
+
+edit_index = None
+if not df_sorted.empty:
+    # ใช้ selectbox ให้ผู้ใช้เลือกแถวจากเลขลำดับ
+    selected_row = st.selectbox(
+        "เลือกแถวเพื่อแก้ไข",
+        options=[f"{row['ลำดับ']} | {row['เลขที่ใบกำกับ']} | {row['Seller']}" for _, row in df_sorted.iterrows()],
+        index=0
+    )
+    # แปลงเป็น index
+    edit_index = int(selected_row.split(" | ")[0])  # ใช้ลำดับเป็น key
+    real_index = df.index[df["ลำดับ"] == edit_index][0]
+    st.session_state.edit_index = real_index
 
 # ==========================
 # 🧾 ฟอร์มกรอก/แก้ไขข้อมูล
@@ -42,7 +60,7 @@ st.subheader("🧾 กรอกหรือแก้ไขข้อมูล")
 edit_mode = "edit_index" in st.session_state and st.session_state.edit_index is not None
 edit_row = df.loc[st.session_state.edit_index] if edit_mode else None
 
-with st.form("sales_form", clear_on_submit=True):
+with st.form("sales_form", clear_on_submit=False):
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -111,7 +129,6 @@ with st.form("sales_form", clear_on_submit=True):
             value="" if not edit_mode else str(edit_row["เลขที่ใบโอน"])
         )
 
-        # 🔹 หมายเหตุ + รายละเอียด
         หมายเหตุ_ตัวเลือก = st.selectbox(
             "หมายเหตุ",
             ["", "คืนสินค้า", "พัสดุตีกลับ", "ยกเลิกออเดอร์", "อื่นๆ"],
@@ -129,66 +146,29 @@ with st.form("sales_form", clear_on_submit=True):
             )
 
     submitted = st.form_submit_button("💾 บันทึกข้อมูล")
+    delete_btn = st.form_submit_button("🗑️ ลบข้อมูล") if edit_mode else False
 
 # ==========================
-# ✅ บันทึกข้อมูล
+# ✅ บันทึกหรือ ลบข้อมูล
 # ==========================
-if submitted:
-    new_data = pd.DataFrame([[
+if submitted and edit_mode:
+    df.iloc[st.session_state.edit_index] = [
         วันที่สั่งซื้อ, ลำดับ, เลขที่ใบกำกับ, Seller,
         เลขที่คำสั่งซื้อชื่อลูกค้า, รหัส, สี, Size,
         ราคาขาย, ส่วนลด, สุทธิ, วดป, จำนวนเงิน,
         ค่าขนส่งกทม, ค่าขนส่งตจว, เลขที่ใบโอน,
         หมายเหตุ_ตัวเลือก, รายละเอียด
-    ]], columns=COLUMNS)
-
-    if edit_mode:
-        df.iloc[st.session_state.edit_index] = new_data.iloc[0]
-        st.session_state.edit_index = None
-        st.success("✅ แก้ไขข้อมูลเรียบร้อยแล้ว!")
-    else:
-        df = pd.concat([df, new_data], ignore_index=True)
-        st.success("✅ บันทึกข้อมูลเรียบร้อยแล้ว!")
-
+    ]
     save_data(df)
+    st.success("✅ แก้ไขข้อมูลเรียบร้อยแล้ว!")
     clear_form()
-    st.rerun()
+    st.session_state.edit_index = None
+    st.experimental_rerun()
 
-# ==========================
-# 📋 ตารางข้อมูลพร้อมปุ่มแก้ไข/ลบในแต่ละแถว
-# ==========================
-st.subheader("📋 ข้อมูลทั้งหมด (เรียงตามวันที่สั่งซื้อ)")
-
-if not df.empty:
-    df["วันที่สั่งซื้อ"] = pd.to_datetime(df["วันที่สั่งซื้อ"], errors="coerce")
-    df_sorted = df.sort_values(by="วันที่สั่งซื้อ", ascending=True).reset_index(drop=True)
-
-    # แสดงหัวคอลัมน์
-    st.write(df_sorted)
-
-    # แสดงปุ่มแก้ไข/ลบแถวต่อแถว
-    for i, row in df_sorted.iterrows():
-        cols = st.columns([0.05]*2 + [0.95])  # 2 ช่องเล็กสำหรับปุ่ม + 1 ช่องใหญ่สำหรับข้อมูล
-        with cols[0]:
-            edit_btn = st.button("✏️", key=f"edit_{i}")
-        with cols[1]:
-            delete_btn = st.button("🗑️", key=f"delete_{i}")
-        with cols[2]:
-            # แสดงข้อมูลทุกคอลัมน์ในแถวเดียว (เหมือน Excel)
-            st.markdown(
-                " | ".join([f"**{col}**: {row[col]}" for col in COLUMNS])
-            )
-
-        if edit_btn:
-            real_index = df.index[df["ลำดับ"] == row["ลำดับ"]][0]
-            st.session_state.edit_index = real_index
-            st.rerun()
-
-        if delete_btn:
-            real_index = df.index[df["ลำดับ"] == row["ลำดับ"]][0]
-            df = df.drop(real_index).reset_index(drop=True)
-            save_data(df)
-            st.warning("🗑️ ลบข้อมูลเรียบร้อยแล้ว!")
-            st.rerun()
-else:
-    st.info("ยังไม่มีข้อมูล กรุณากรอกข้อมูลใหม่")
+if delete_btn and edit_mode:
+    df = df.drop(st.session_state.edit_index).reset_index(drop=True)
+    save_data(df)
+    st.warning("🗑️ ลบข้อมูลเรียบร้อยแล้ว!")
+    clear_form()
+    st.session_state.edit_index = None
+    st.experimental_rerun()
