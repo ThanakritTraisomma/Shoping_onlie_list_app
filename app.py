@@ -19,6 +19,9 @@ if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 0:
 else:
     df = pd.DataFrame(columns=COLUMNS)
 
+# ======================
+# ส่วนกรอกข้อมูล
+# ======================
 def clear_form():
     for key in list(st.session_state.keys()):
         if key not in ["edit_index"]:
@@ -109,44 +112,34 @@ if submitted:
 
     df["วันที่สั่งซื้อ"] = pd.to_datetime(df["วันที่สั่งซื้อ"], errors="coerce")
     df = df.sort_values(by="วันที่สั่งซื้อ", ascending=True).reset_index(drop=True)
-
     df.to_excel(DATA_FILE, index=False)
     clear_form()
     st.rerun()
 
-# ==========================
-# 📋 ตารางข้อมูล (เต็ม + ปุ่ม)
-# ==========================
+# ======================
+# แสดงตารางสวยพร้อมปุ่ม
+# ======================
 st.subheader("📋 ข้อมูลทั้งหมด")
 
 if not df.empty:
-    st.markdown("**คลิกปุ่มแก้ไข/ลบที่แต่ละแถวได้เลย**")
-    st.write("---")
+    df_show = df.copy()
+    df_show["✏️ แก้ไข"] = [f"edit_{i}" for i in df_show.index]
+    df_show["🗑️ ลบ"] = [f"delete_{i}" for i in df_show.index]
 
-    # ส่วนหัวตาราง
-    header_cols = ["", "", *COLUMNS]
-    header = st.columns([0.4, 0.4] + [1]*len(COLUMNS))
-    for i, h in enumerate(header_cols):
-        header[i].markdown(f"**{h}**")
+    st.dataframe(df_show, use_container_width=True)
 
-    # แสดงข้อมูลทั้งหมดแบบมีปุ่ม
+    st.markdown("### ✏️ ดำเนินการ")
     for i in df.index:
-        cols = st.columns([0.4, 0.4] + [1]*len(COLUMNS))
+        cols = st.columns([0.3, 0.3, 2])
         with cols[0]:
-            if st.button("✏️", key=f"edit_{i}"):
+            if st.button("✏️ แก้ไข", key=f"edit_{i}"):
                 st.session_state.edit_index = i
                 st.rerun()
         with cols[1]:
-            if st.button("🗑️", key=f"delete_{i}"):
+            if st.button("🗑️ ลบ", key=f"delete_{i}"):
                 df = df.drop(i).reset_index(drop=True)
                 df.to_excel(DATA_FILE, index=False)
                 st.warning("🗑️ ลบข้อมูลเรียบร้อยแล้ว!")
                 st.rerun()
-
-        # เขียนค่าในแต่ละคอลัมน์
-        for j, col_name in enumerate(COLUMNS):
-            val = df.at[i, col_name]
-            cols[j+2].write("" if pd.isna(val) else val)
-
 else:
     st.info("ยังไม่มีข้อมูล กรุณากรอกข้อมูลใหม่")
