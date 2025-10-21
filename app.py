@@ -31,12 +31,12 @@ def clear_form():
         if key not in ["selected_index"]:
             del st.session_state[key]
 
-# สร้าง default session_state
+# สร้าง session state สำหรับเก็บแถวที่เลือกแก้ไข
 if "selected_index" not in st.session_state:
     st.session_state.selected_index = None
 
 # ==========================
-# ฟอร์มกรอก/แก้ไขข้อมูล (ด้านบน)
+# ฟอร์มกรอก/แก้ไขข้อมูล
 # ==========================
 st.subheader("🧾 กรอกหรือแก้ไขข้อมูล")
 edit_mode = st.session_state.selected_index is not None
@@ -104,8 +104,7 @@ if not df_sorted.empty:
         cols = st.columns([0.1] + [1]*len(COLUMNS))
         with cols[0]:
             if st.button("✏️", key=f"edit_{idx}"):
-                st.session_state.selected_index = idx
-                st.experimental_rerun()
+                st.session_state.selected_index = idx  # เก็บแถวที่เลือก
         for i, col_name in enumerate(COLUMNS):
             with cols[i+1]:
                 st.write(row[col_name])
@@ -133,7 +132,6 @@ if submitted:
     save_data(df)
     clear_form()
     st.session_state.selected_index = None
-    st.experimental_rerun()
 
 if delete_btn and edit_mode:
     df = df.drop(st.session_state.selected_index).reset_index(drop=True)
@@ -141,4 +139,3 @@ if delete_btn and edit_mode:
     st.warning("🗑️ ลบข้อมูลเรียบร้อยแล้ว!")
     clear_form()
     st.session_state.selected_index = None
-    st.experimental_rerun()
