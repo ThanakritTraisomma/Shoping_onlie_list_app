@@ -31,11 +31,15 @@ def clear_form():
         if key not in ["selected_index"]:
             del st.session_state[key]
 
+# สร้าง default session_state
+if "selected_index" not in st.session_state:
+    st.session_state.selected_index = None
+
 # ==========================
 # ฟอร์มกรอก/แก้ไขข้อมูล (ด้านบน)
 # ==========================
 st.subheader("🧾 กรอกหรือแก้ไขข้อมูล")
-edit_mode = "selected_index" in st.session_state and st.session_state.selected_index is not None
+edit_mode = st.session_state.selected_index is not None
 edit_row = df.loc[st.session_state.selected_index] if edit_mode else None
 
 with st.form("sales_form", clear_on_submit=False):
@@ -84,25 +88,23 @@ with st.form("sales_form", clear_on_submit=False):
     delete_btn = st.form_submit_button("🗑️ ลบข้อมูล") if edit_mode else False
 
 # ==========================
-# ตารางข้อมูล (ด้านล่าง)
+# ตารางข้อมูล (เรียงวันที่สั่งซื้อ)
 # ==========================
-st.subheader("📋 ตารางข้อมูล (เรียงตามวันที่สั่งซื้อ)")
+st.subheader("📋 ตารางข้อมูล")
 df["วันที่สั่งซื้อ"] = pd.to_datetime(df["วันที่สั่งซื้อ"], errors="coerce")
 df_sorted = df.sort_values(by="วันที่สั่งซื้อ", ascending=True).reset_index(drop=True)
 
 if not df_sorted.empty:
-    # แสดงหัวตาราง
     header_cols = st.columns([0.1] + [1]*len(COLUMNS))
     header_cols[0].write("แก้ไข")
     for i, col_name in enumerate(COLUMNS):
         header_cols[i+1].write(col_name)
 
-    # แสดงแต่ละแถว
     for idx, row in df_sorted.iterrows():
         cols = st.columns([0.1] + [1]*len(COLUMNS))
         with cols[0]:
             if st.button("✏️", key=f"edit_{idx}"):
-                st.session_state.selected_index = idx  # ใช้ idx ตรง ๆ
+                st.session_state.selected_index = idx
                 st.experimental_rerun()
         for i, col_name in enumerate(COLUMNS):
             with cols[i+1]:
@@ -111,7 +113,7 @@ else:
     st.info("ยังไม่มีข้อมูล กรุณากรอกข้อมูลใหม่")
 
 # ==========================
-# บันทึกหรือ ลบข้อมูล
+# บันทึก / ลบ
 # ==========================
 if submitted:
     new_row_data = [
