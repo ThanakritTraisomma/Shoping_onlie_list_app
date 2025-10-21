@@ -39,23 +39,27 @@ df["วันที่สั่งซื้อ"] = pd.to_datetime(df["วัน�
 df_sorted = df.sort_values(by="วันที่สั่งซื้อ", ascending=True).reset_index(drop=True)
 
 if not df_sorted.empty:
-    # แสดงตาราง
     st.dataframe(df_sorted, use_container_width=True)
 
-    # เลือกแถวแบบ radio (ซ่อนด้านข้าง)
-    selected = st.radio(
-        "คลิกเลือกแถวเพื่อแก้ไข",
+    # เลือกแถวที่จะแก้ไข
+    selected = st.selectbox(
+        "เลือกแถวเพื่อแก้ไข",
         options=df_sorted.index,
         format_func=lambda i: f"ลำดับ {df_sorted.loc[i, 'ลำดับ']} | {df_sorted.loc[i, 'เลขที่ใบกำกับ']}"
     )
     st.session_state.selected_index = selected
+
+    # scroll ไปยังฟอร์ม
+    if st.button("แก้ไขแถวนี้"):
+        st.session_state.scroll_to_form = True
+        st.experimental_rerun()
 else:
     st.info("ยังไม่มีข้อมูล กรุณากรอกข้อมูลใหม่")
-    selected = None
 
 # ==========================
-# 🧾 ฟอร์มกรอก/แก้ไขข้อมูล
+# 🧾 ฟอร์มกรอก/แก้ไขข้อมูล (อยู่ตำแหน่งเดิม)
 # ==========================
+st.markdown("<a id='form'></a>", unsafe_allow_html=True)
 st.subheader("🧾 กรอกหรือแก้ไขข้อมูล")
 
 edit_mode = "selected_index" in st.session_state and st.session_state.selected_index is not None
