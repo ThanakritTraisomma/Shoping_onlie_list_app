@@ -28,37 +28,38 @@ def save_data(df):
 
 def clear_form():
     for key in list(st.session_state.keys()):
-        if key not in ["edit_index"]:
+        if key not in ["selected_index"]:
             del st.session_state[key]
 
 # ==========================
-# 📋 เลือกแถวสำหรับแก้ไข
+# 📋 ตารางข้อมูล
 # ==========================
 st.subheader("📋 ตารางข้อมูล (เรียงตามวันที่สั่งซื้อ)")
 df["วันที่สั่งซื้อ"] = pd.to_datetime(df["วันที่สั่งซื้อ"], errors="coerce")
 df_sorted = df.sort_values(by="วันที่สั่งซื้อ", ascending=True).reset_index(drop=True)
-st.dataframe(df_sorted, use_container_width=True)
 
-edit_index = None
 if not df_sorted.empty:
-    # ใช้ selectbox ให้ผู้ใช้เลือกแถวจากเลขลำดับ
-    selected_row = st.selectbox(
-        "เลือกแถวเพื่อแก้ไข",
-        options=[f"{row['ลำดับ']} | {row['เลขที่ใบกำกับ']} | {row['Seller']}" for _, row in df_sorted.iterrows()],
-        index=0
+    # แสดงตาราง
+    st.dataframe(df_sorted, use_container_width=True)
+
+    # เลือกแถวแบบ radio (ซ่อนด้านข้าง)
+    selected = st.radio(
+        "คลิกเลือกแถวเพื่อแก้ไข",
+        options=df_sorted.index,
+        format_func=lambda i: f"ลำดับ {df_sorted.loc[i, 'ลำดับ']} | {df_sorted.loc[i, 'เลขที่ใบกำกับ']}"
     )
-    # แปลงเป็น index
-    edit_index = int(selected_row.split(" | ")[0])  # ใช้ลำดับเป็น key
-    real_index = df.index[df["ลำดับ"] == edit_index][0]
-    st.session_state.edit_index = real_index
+    st.session_state.selected_index = selected
+else:
+    st.info("ยังไม่มีข้อมูล กรุณากรอกข้อมูลใหม่")
+    selected = None
 
 # ==========================
 # 🧾 ฟอร์มกรอก/แก้ไขข้อมูล
 # ==========================
 st.subheader("🧾 กรอกหรือแก้ไขข้อมูล")
 
-edit_mode = "edit_index" in st.session_state and st.session_state.edit_index is not None
-edit_row = df.loc[st.session_state.edit_index] if edit_mode else None
+edit_mode = "selected_index" in st.session_state and st.session_state.selected_index is not None
+edit_row = df_sorted.loc[st.session_state.selected_index] if edit_mode else None
 
 with st.form("sales_form", clear_on_submit=False):
     col1, col2, col3 = st.columns(3)
@@ -152,7 +153,7 @@ with st.form("sales_form", clear_on_submit=False):
 # ✅ บันทึกหรือ ลบข้อมูล
 # ==========================
 if submitted and edit_mode:
-    df.iloc[st.session_state.edit_index] = [
+    df.iloc[st.session_state.selected_index] = [
         วันที่สั่งซื้อ, ลำดับ, เลขที่ใบกำกับ, Seller,
         เลขที่คำสั่งซื้อชื่อลูกค้า, รหัส, สี, Size,
         ราคาขาย, ส่วนลด, สุทธิ, วดป, จำนวนเงิน,
@@ -162,13 +163,13 @@ if submitted and edit_mode:
     save_data(df)
     st.success("✅ แก้ไขข้อมูลเรียบร้อยแล้ว!")
     clear_form()
-    st.session_state.edit_index = None
+    st.session_state.selected_index = None
     st.experimental_rerun()
 
 if delete_btn and edit_mode:
-    df = df.drop(st.session_state.edit_index).reset_index(drop=True)
+    df = df.drop(st.session_state.selected_index).reset_index(drop=True)
     save_data(df)
     st.warning("🗑️ ลบข้อมูลเรียบร้อยแล้ว!")
     clear_form()
-    st.session_state.edit_index = None
+    st.session_state.selected_index = None
     st.experimental_rerun()
