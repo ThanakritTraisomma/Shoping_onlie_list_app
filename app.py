@@ -135,20 +135,22 @@ df["วันที่สั่งซื้อ"] = pd.to_datetime(df["วัน�
 df_sorted = df.sort_values(by="วันที่สั่งซื้อ", ascending=True).reset_index()
 
 if not df_sorted.empty:
+    # แสดงหัวตาราง
+    header_cols = st.columns([0.1] + [1]*len(COLUMNS))
+    header_cols[0].write("แก้ไข")
+    for i, col_name in enumerate(COLUMNS):
+        header_cols[i+1].write(col_name)
+
+    # แสดงแต่ละแถว
     for idx, row in df_sorted.iterrows():
-        cols = st.columns([0.1, 0.8, 0.8, 0.8, 0.8])
+        cols = st.columns([0.1] + [1]*len(COLUMNS))
         with cols[0]:
             if st.button("✏️", key=f"edit_{idx}"):
                 st.session_state.selected_index = row["index"]
                 st.experimental_rerun()
-        with cols[1]:
-            st.write(row["ลำดับ"])
-        with cols[2]:
-            st.write(row["เลขที่ใบกำกับ"])
-        with cols[3]:
-            st.write(row["Seller"])
-        with cols[4]:
-            st.write(row["เลขที่คำสั่งซื้อ/ชื่อลูกค้า"])
+        for i, col_name in enumerate(COLUMNS):
+            with cols[i+1]:
+                st.write(row[col_name])
 else:
     st.info("ยังไม่มีข้อมูล กรุณากรอกข้อมูลใหม่")
 
