@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import os
-from io import BytesIO
 
 st.set_page_config(page_title="รายงานภาษีขายรายวัน", layout="wide")
 st.title("📑 ระบบกรอกข้อมูลรายงานภาษีขายรายวัน")
@@ -60,7 +59,6 @@ with st.form("sales_form"):
         ค่าขนส่งกทม = st.number_input("ค่าขนส่ง กทม.", min_value=0.0, value=0.0 if not edit_mode else float(edit_row["ค่าขนส่ง กทม."]))
         ค่าขนส่งตจว = st.number_input("ค่าขนส่ง ตจว.", min_value=0.0, value=0.0 if not edit_mode else float(edit_row["ค่าขนส่ง ตจว."]))
 
-        # 🔹 แยกเลขที่ใบโอน + หมายเหตุ (เวลาแก้ไข)
         edit_เลขที่ใบโอน = ""
         edit_หมายเหตุ = ""
         if edit_mode:
@@ -117,31 +115,38 @@ if submitted:
     st.rerun()
 
 # ==========================
-# 📋 ตารางข้อมูล
+# 📋 ตารางข้อมูล (เต็ม + ปุ่ม)
 # ==========================
 st.subheader("📋 ข้อมูลทั้งหมด")
+
 if not df.empty:
-    st.dataframe(df, use_container_width=True)
+    st.markdown("**คลิกปุ่มแก้ไข/ลบที่แต่ละแถวได้เลย**")
+    st.write("---")
 
-    for i, row in df.iterrows():
-        cols = st.columns([0.1, 0.1, 1, 1, 1, 1])
+    # ส่วนหัวตาราง
+    header_cols = ["", "", *COLUMNS]
+    header = st.columns([0.4, 0.4] + [1]*len(COLUMNS))
+    for i, h in enumerate(header_cols):
+        header[i].markdown(f"**{h}**")
+
+    # แสดงข้อมูลทั้งหมดแบบมีปุ่ม
+    for i in df.index:
+        cols = st.columns([0.4, 0.4] + [1]*len(COLUMNS))
         with cols[0]:
-            edit_btn = st.button("✏️ แก้ไข", key=f"edit_{i}")
+            if st.button("✏️", key=f"edit_{i}"):
+                st.session_state.edit_index = i
+                st.rerun()
         with cols[1]:
-            delete_btn = st.button("🗑️ ลบ", key=f"delete_{i}")
-        cols[2].write(row["เลขที่ใบกำกับ"])
-        cols[3].write(row["Seller"])
-        cols[4].write(row["เลขที่คำสั่งซื้อ/ชื่อลูกค้า"])
-        cols[5].write(row["เลขที่ใบโอน"])
+            if st.button("🗑️", key=f"delete_{i}"):
+                df = df.drop(i).reset_index(drop=True)
+                df.to_excel(DATA_FILE, index=False)
+                st.warning("🗑️ ลบข้อมูลเรียบร้อยแล้ว!")
+                st.rerun()
 
-        if edit_btn:
-            st.session_state.edit_index = i
-            st.rerun()
+        # เขียนค่าในแต่ละคอลัมน์
+        for j, col_name in enumerate(COLUMNS):
+            val = df.at[i, col_name]
+            cols[j+2].write("" if pd.isna(val) else val)
 
-        if delete_btn:
-            df = df.drop(i).reset_index(drop=True)
-            df.to_excel(DATA_FILE, index=False)
-            st.warning("🗑️ ลบข้อมูลเรียบร้อยแล้ว!")
-            st.rerun()
 else:
     st.info("ยังไม่มีข้อมูล กรุณากรอกข้อมูลใหม่")
