@@ -146,7 +146,7 @@ if not df_sorted.empty:
         cols = st.columns([0.1] + [1]*len(COLUMNS))
         with cols[0]:
             if st.button("✏️", key=f"edit_{idx}"):
-                st.session_state.selected_index = row["index"]
+                st.session_state.selected_index = row["index"]  # ใช้ index ของ df
                 st.experimental_rerun()
         for i, col_name in enumerate(COLUMNS):
             with cols[i+1]:
