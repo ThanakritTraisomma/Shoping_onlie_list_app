@@ -131,7 +131,7 @@ with st.form("sales_form", clear_on_submit=True):
     submitted = st.form_submit_button("💾 บันทึกข้อมูล")
 
 # ==========================
-# ✅ เมื่อกดบันทึก
+# ✅ บันทึกข้อมูล
 # ==========================
 if submitted:
     new_data = pd.DataFrame([[
@@ -154,28 +154,37 @@ if submitted:
     clear_form()
     st.rerun()
 
-
 # ==========================
-# 📋 ตารางข้อมูลทั้งหมด
+# 📋 ตารางข้อมูลพร้อมปุ่มแก้ไข/ลบ
 # ==========================
-st.subheader("📋 ข้อมูลทั้งหมด")
+st.subheader("📋 ข้อมูลทั้งหมด (เรียงตามวันที่สั่งซื้อ)")
 
 if not df.empty:
-    st.dataframe(df, use_container_width=True)
+    df["วันที่สั่งซื้อ"] = pd.to_datetime(df["วันที่สั่งซื้อ"], errors="coerce")
+    df_sorted = df.sort_values(by="วันที่สั่งซื้อ", ascending=True).reset_index(drop=True)
 
-    # ปุ่มแก้ไข / ลบ
-    for i, row in df.iterrows():
-        cols = st.columns([0.1, 0.1, 1])
+    # แสดงหัวคอลัมน์
+    st.dataframe(df_sorted, use_container_width=True)
+
+    # แสดงปุ่มแก้ไข/ลบแยกแต่ละแถว
+    for i, row in df_sorted.iterrows():
+        cols = st.columns([0.1, 0.1, 0.8])
         with cols[0]:
             edit_btn = st.button("✏️", key=f"edit_{i}")
         with cols[1]:
             delete_btn = st.button("🗑️", key=f"delete_{i}")
+        with cols[2]:
+            st.markdown(f"**เลขที่ใบกำกับ:** {row['เลขที่ใบกำกับ']}, **Seller:** {row['Seller']}, **หมายเหตุ:** {row['หมายเหตุ']}, **รายละเอียด:** {row['รายละเอียด']}")
 
         if edit_btn:
-            st.session_state.edit_index = i
+            # หาตัวจริงใน df
+            real_index = df.index[df["ลำดับ"] == row["ลำดับ"]][0]
+            st.session_state.edit_index = real_index
             st.rerun()
+
         if delete_btn:
-            df = df.drop(i).reset_index(drop=True)
+            real_index = df.index[df["ลำดับ"] == row["ลำดับ"]][0]
+            df = df.drop(real_index).reset_index(drop=True)
             save_data(df)
             st.warning("🗑️ ลบข้อมูลเรียบร้อยแล้ว!")
             st.rerun()
